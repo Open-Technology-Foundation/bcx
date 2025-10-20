@@ -1,0 +1,30 @@
+#!/usr/bin/bash
+
+_bcx_completion() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    # Options for bcx
+    opts="-h --help"
+
+    case "${prev}" in
+        bcx)
+            # Complete with help options or allow any mathematical expression
+            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+            return 0
+            ;;
+        *)
+            # For mathematical expressions, don't provide completions
+            # as they are user-defined calculations
+            return 0
+            ;;
+    esac
+}
+
+# Register completion for bcx command
+complete -F _bcx_completion bcx
+
+# Also register completion for common alias '?'
+complete -F _bcx_completion ?
