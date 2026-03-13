@@ -31,11 +31,15 @@ echo "alias ?='bcx'" >> ~/.bashrc
 
 ## Usage
 
+```
+bcx [-h|--help] [-V|--version] [expression]
+```
+
 **Single-expression evaluation:**
 ```bash
 bcx "3.14 * 2"              # 6.28
 bcx "sqrt(144)"             # 12
-bcx 42x72/3.14              # x converts to * in terminal mode
+bcx 42x72/3.14              # x converts to * (command-line only, not in REPL)
 ```
 
 **Interactive REPL:**
@@ -44,8 +48,8 @@ $ bcx
 > 2 + 2
 4
 > sqrt(16)
-4
-> ^D
+4.00000000000000000000
+>                             # empty line or Ctrl-D exits
 ```
 
 **As command alias:**
@@ -60,11 +64,27 @@ result=$(bcx "42 * 72 / 3.14")
 echo "Result: $result"
 ```
 
+### REPL Controls
+
+| Key | Action |
+|-----|--------|
+| Ctrl-D or empty line | Exit (code 0) |
+| Ctrl-C | Exit (code 130) |
+| ↑/↓ | History navigation |
+| Ctrl-R | Reverse history search |
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Normal exit |
+| 1 | Invalid expression (single-expression mode) |
+| 130 | Interrupted with Ctrl-C |
+
 ## Requirements
 
-- Bash 4.0+
+- Bash 4.4+ (`inherit_errexit`, `${var@Q}`)
 - `bc` command-line calculator
-- Linux/Unix terminal with readline support
 
 ## BCS Compliance
 

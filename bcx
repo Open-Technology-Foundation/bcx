@@ -1,8 +1,8 @@
 #!/bin/bash
-#shellcheck disable=SC2317,SC2155
+#shellcheck disable=SC2317
 # bcx - terminal calculator for floating point expressions
 set -euo pipefail
-shopt -s inherit_errexit shift_verbose extglob nullglob
+shopt -s inherit_errexit
 
 ## INITIALIZATION ##
 
@@ -41,7 +41,7 @@ process_expression() {
 
 evaluate_expression() {
   # Evaluate expression with bc and return error status
-  local -- expr="$1"
+  local -- expr=$1
   local -i exit_code=0
 
   "$BC" --mathlib <<<"$expr" 2>"$errfile"
@@ -57,8 +57,8 @@ evaluate_expression() {
 
 interactive_sigint_handler() {
   # Handle Ctrl-C during interactive REPL
+  # EXIT trap handles cleanup; just exit with signal code
   >&2 echo
-  cleanup 130
   exit 130
 }
 
@@ -68,22 +68,19 @@ interactive_loop() {
   trap 'interactive_sigint_handler' SIGINT
 
   local -- expr
-  local -i read_rc
   while ((1)); do
-    >&2 read -e -r -p '> ' expr
-    read_rc=$?
-    ((read_rc == 0)) || break # read failed - Ctrl-D (EOF)
-    [[ -n $expr ]] || break
+    read -e -r -p '> ' expr || break  # EOF (Ctrl-D) exits REPL
+    [[ -n $expr ]] || break            # empty line exits REPL
     history -s "$expr"
     evaluate_expression "$expr" || :
   done
 
-  # Restore original trap
+  # Restore default SIGINT handler (interactive_loop overrides it)
   trap 'cleanup $?' SIGINT
 }
 
 show_help() {
-  cat <<'EOT'
+  cat <<'HELP'
 bcx - terminal calculator for floating point expressions
 
 This is a wrapper script for bc (see: man bc).
@@ -99,7 +96,16 @@ Because bc at the terminal sucks.
 >
 ```
 
-Usage: bcx expression
+Usage: bcx [-h|--help] [-V|--version] [expression]
+
+  With expression:  evaluate and enter REPL (terminal) or print result (pipe)
+  Without args:     enter interactive REPL (terminal) or show help (pipe)
+
+REPL controls:
+  Ctrl-D or empty line  exit (code 0)
+  Ctrl-C                exit (code 130)
+  ↑/↓                   history navigation
+  Ctrl-R                reverse history search
 
 Examples:
   bcx 3.14*2
@@ -115,7 +121,7 @@ Then:
   ? 23 * 42       # ✗ Incorrect on command line!
   ? 23x42         # can use x for * on command line
   ? 23 x 42       # with spaces
-EOT
+HELP
 }
 
 ## EXECUTION ##
@@ -125,10 +131,12 @@ EOT
 [[ ${1:-} == '-V' || ${1:-} == '--version' ]] && { echo "bcx $VERSION"; exit 0; }
 
 # Locate bc command
-declare -r BC=$(command -v bc) || { >&2 echo "bcx: ✗ 'bc' not found"; exit 1; }
+BC=$(command -v bc) || { >&2 echo "bcx: ✗ 'bc' not found"; exit 1; }
+declare -r BC
 
 # Setup error file with mktemp
-declare -r errfile=$(mktemp -t bcx-error.XXXXXX) || { >&2 echo 'bcx: ✗ Cannot create temp file'; exit 1; }
+errfile=$(mktemp -t bcx-error.XXXXXX) || { >&2 echo 'bcx: ✗ Cannot create temp file'; exit 1; }
+declare -r errfile
 
 # Setup exit trap
 trap 'cleanup $?' SIGINT SIGTERM EXIT
@@ -136,7 +144,7 @@ trap 'cleanup $?' SIGINT SIGTERM EXIT
 # Terminal detection
 declare -i is_terminal
 [[ -t 1 ]] && is_terminal=1 || is_terminal=0
-readonly is_terminal
+readonly -- is_terminal
 
 # Check if we have an expression
 if (($#)); then

@@ -1,0 +1,23 @@
+System Information
+==================
+Date: 2026-03-13T15:58:14+08:00
+Hostname: okusi
+Bash Version: 5.2.21(1)-release
+CPU: 13th Gen Intel(R) Core(TM) i9-13900HX
+Kernel: 6.17.0-14-generic
+Runs per test: 30
+
+Starting benchmarks...
+
+Test: Empty loop with counter break (100K) (iterations: 100000)
+while ((1)) - Mean: 0.092s, Median: 0.091s, StdDev: 0.007s
+while :     - Mean: 0.099s, Median: 0.097s, StdDev: 0.006s
+while true  - Mean: 0.109s, Median: 0.107s, StdDev: 0.006s
+Fastest: while ((1))
+
+Test: Empty loop with counter break (1M) (iterations: 1000000)
+while ((1)) - Mean: 0.819s, Median: 0.819s, StdDev: 0.010s
+while :     - Mean: 0.933s, Median: 0.927s, StdDev: 0.020s
+while true  - Mean: 1.000s, Median: 0.999s, StdDev: 0.013s
+Fastest: while ((1))
+
