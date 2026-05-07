@@ -40,47 +40,55 @@ error() { _msg "✗ $*"; }
 die()   { error "${@:2}"; exit "$1"; }
 
 show_help() {
-  # Heredocs: unquoted sections expand $SCRIPT_NAME / $VERSION (synopsis);
-  # quoted sections preserve literal `$`, `$(…)`, and backticks (examples).
+  # Unquoted heredoc expands $SCRIPT_NAME / $VERSION; literal `$` in shell
+  # snippets (prompt, command-substitution example) is backslash-escaped.
   cat <<HELP
 $SCRIPT_NAME $VERSION - terminal calculator for floating point expressions
-HELP
-  cat <<'HELP'
 
-This is a wrapper script for bc (see: man bc).
+This is a wrapper script for bc (see: man bc). Because bc at the terminal sucks.
 
-Because bc at the terminal sucks.
+The same calculation, raw bc vs bcx:
 
-    0:~/bcx:biksu@okusi$ bc --mathlib <<<"42*72/3.14%0.137"
-    .00000000000000000000043
-    0:~/bcx:biksu@okusi$ bcx 42x72 /3.14% 0.137
-    > 42*72/3.14%0.137
-    .00000000000000000000043
-    >
+    \$ bc -l <<<'42*72/3.14'
+    963.05732484076433121019
 
-HELP
-  cat <<HELP
+    \$ bcx 42*72/3.14
+    > 42*72/3.14
+    963.05732484076433121019
+
+bcx joins all command-line args, strips spaces, and (in terminal
+mode) substitutes 'x' for '*' so the expression needs no quoting
+or escaping.
+
 Usage: $SCRIPT_NAME [-h|--help] [-V|--version] [--] [expression...]
 
   With expression:  evaluate and enter REPL (terminal) or print result (pipe)
   Without args:     enter interactive REPL (terminal) or show help + exit 2 (pipe)
 
 Multiple args are joined and stripped of spaces before evaluation.
-Use \`--\` before expressions that begin with \`-\` (e.g., \`$SCRIPT_NAME -- -3+5\`).
+Use '--' before expressions that begin with '-' (e.g., '$SCRIPT_NAME -- -3+5').
 
-HELP
-  cat <<'HELP'
 REPL controls:
   Ctrl-D or empty line  exit (code 0)
   Ctrl-C                exit (code 130)
   ↑/↓                   history navigation
   Ctrl-R                reverse history search
 
-Examples:
-  bcx 3.14*2
-  bcx 23x42       # x → * when in terminal mode
-  bcx "sqrt(2)"
-  fp_result=$(bcx 42*69*72/3.14)
+Examples (no quotes needed):
+  bcx 23x42                       # 966             (x → *)
+  bcx 1024 x 1024 x 1024          # 1073741824      (args joined)
+  bcx 22/7                        # 3.14285714...   (mathlib auto-scale)
+  bcx 1.05^10                     # 1.62889...      (10-year growth)
+  bcx 100x1.05^10                 # 162.889...      (compound interest)
+
+Quote when the expression contains parentheses, semicolons, or
+literal whitespace inside a string:
+  bcx "sqrt(2)"                   # 1.41421...
+  bcx "scale=4; 22/7"             # 3.1428
+  bcx "a(1)*4"                    # π via 4·atan(1)
+
+Capture output:
+  result=\$(bcx 42x69x72/3.14)
 
 Setup alias in ~/.bashrc:
   alias ?='/usr/local/bin/bcx'
