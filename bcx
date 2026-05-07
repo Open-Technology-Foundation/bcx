@@ -28,9 +28,9 @@ declare -ri HISTSIZE=1000 HISTFILESIZE=2000
 # Functions
 
 # Messaging primitives (BCS0703)
-_msg()  { >&2 printf '%s: %s\n' "$SCRIPT_NAME" "$*"; }
+_msg()  { >&2 printf "$SCRIPT_NAME: %s\n" "$@"; }
 error() { _msg "✗ $*"; }
-die()   { (($# < 2)) || error "${@:2}"; exit "${1:-1}"; }
+die()   { error "${@:2}"; exit "$1"; }
 
 show_help() {
   cat <<'HELP'
@@ -89,7 +89,7 @@ cleanup() {
   trap - SIGINT SIGTERM EXIT
   ((IS_TERMINAL)) && history -w "$HISTFILE" 2>/dev/null ||:
   rm -f "${ERRFILE:-}"
-  exit "$exit_code"
+  exit $exit_code
 }
 
 setup_history() {
@@ -113,18 +113,18 @@ evaluate_expression() {
   # can detect parse/runtime errors (bc still exits 0 on syntax errors, hence
   # the file-size probe). Returns 22 (ERR_INVAL) if bc emitted any diagnostic,
   # else 0.
-  local -- expr="$1"
+  local -- expr=$1
   local -i exit_code=0
 
   "$BC" --mathlib <<<"$expr" 2>"$ERRFILE"
 
-  if [[ -s "$ERRFILE" ]]; then
+  if [[ -s $ERRFILE ]]; then
     error "Invalid expression ${expr@Q}"
     >&2 cat "$ERRFILE"
     exit_code=22  # ERR_INVAL (BCS0602)
   fi
 
-  return "$exit_code"
+  return $exit_code
 }
 
 interactive_sigint_handler() {
@@ -200,5 +200,5 @@ if ((IS_TERMINAL)); then
   set +o history  # defensive: cleanup() already wrote $HISTFILE on EXIT
 fi
 
-exit "$ERR"
+exit $ERR
 #fin
