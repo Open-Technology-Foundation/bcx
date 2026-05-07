@@ -54,3 +54,6 @@ Thumbs.db
 # Backups
 *.bak
 *.tmp
+
+# Audit reports (local artifacts only)
+AUDIT-*.md

@@ -1,5 +1,5 @@
 #!/bin/bash
-#shellcheck disable=SC2317
+#shellcheck disable=SC2317,SC2329
 # bcx - terminal calculator for floating point expressions
 set -euo pipefail
 shopt -s inherit_errexit
@@ -20,27 +20,37 @@ declare -ri HISTSIZE=1000 HISTFILESIZE=2000
 ## FUNCTIONS ##
 
 cleanup() {
+  # EXIT/SIGINT/SIGTERM trap: persist REPL history (terminal mode only),
+  # remove the temp error file, then exit with the original status.
+  # `trap -` disarms before any blocking I/O so a second signal cannot re-enter.
+  # `exit` (not `return`) is required to terminate on SIGTERM rather than resume.
   local -i exit_code=${1:-$?}
-  ((is_terminal)) && history -w "$HISTFILE" 2>/dev/null
-  rm -f "$errfile"
-  return "$exit_code"
+  trap - SIGINT SIGTERM EXIT
+  ((is_terminal)) && history -w "$HISTFILE" 2>/dev/null ||:
+  rm -f "${errfile:-}"
+  exit "$exit_code"
 }
 
 setup_history() {
-  # Enable readline history for interactive mode
+  # Enable bash history facility and load prior REPL entries from disk.
   set -o history
   history -r "$HISTFILE" 2>/dev/null || :
 }
 
 process_expression() {
-  # Normalize expression: remove spaces
+  # Join all argv into a single expression and strip every space character.
+  # Note: the x→* substitution is NOT done here — that's terminal-mode only,
+  # applied by the caller after this function returns.
   local -- expr="$*"
-  expr=${expr// /}   # remove all space chars
-  echo "$expr"
+  expr=${expr// /}
+  printf '%s\n' "$expr"
 }
 
 evaluate_expression() {
-  # Evaluate expression with bc and return error status
+  # Pipe expression to `bc --mathlib`; capture bc's stderr to $errfile so we
+  # can detect parse/runtime errors (bc still exits 0 on syntax errors, hence
+  # the file-size probe). Returns 22 (ERR_INVAL) if bc emitted any diagnostic,
+  # else 0.
   local -- expr=$1
   local -i exit_code=0
 
@@ -49,7 +59,7 @@ evaluate_expression() {
   if [[ -s "$errfile" ]]; then
     >&2 echo "bcx: ✗ Invalid expression ${expr@Q}"
     >&2 cat "$errfile"
-    exit_code=1
+    exit_code=22  # ERR_INVAL (BCS0602)
   fi
 
   return "$exit_code"
@@ -63,19 +73,19 @@ interactive_sigint_handler() {
 }
 
 interactive_loop() {
-  # Interactive REPL for terminal mode with readline history
-  # Set custom SIGINT handler for REPL
+  # REPL with readline editing (`read -e`) and persistent history.
+  # Override SIGINT so Ctrl-C exits with code 130 instead of being silently
+  # caught by the global cleanup trap; restored to cleanup on exit.
   trap 'interactive_sigint_handler' SIGINT
 
   local -- expr
-  while ((1)); do
-    read -e -r -p '> ' expr || break  # EOF (Ctrl-D) exits REPL
-    [[ -n $expr ]] || break            # empty line exits REPL
+  while :; do
+    read -e -r -p '> ' expr || break  # Ctrl-D / EOF
+    [[ -n $expr ]] || break            # blank line
     history -s "$expr"
-    evaluate_expression "$expr" || :
+    evaluate_expression "$expr" || :   # bc errors don't break the loop
   done
 
-  # Restore default SIGINT handler (interactive_loop overrides it)
   trap 'cleanup $?' SIGINT
 }
 
@@ -96,10 +106,12 @@ Because bc at the terminal sucks.
 >
 ```
 
-Usage: bcx [-h|--help] [-V|--version] [expression]
+Usage: bcx [-h|--help] [-V|--version] [expression...]
 
   With expression:  evaluate and enter REPL (terminal) or print result (pipe)
-  Without args:     enter interactive REPL (terminal) or show help (pipe)
+  Without args:     enter interactive REPL (terminal) or show help + exit 2 (pipe)
+
+Multiple args are joined and stripped of spaces before evaluation.
 
 REPL controls:
   Ctrl-D or empty line  exit (code 0)
@@ -131,15 +143,16 @@ HELP
 [[ ${1:-} == '-V' || ${1:-} == '--version' ]] && { echo "bcx $VERSION"; exit 0; }
 
 # Locate bc command
-BC=$(command -v bc) || { >&2 echo "bcx: ✗ 'bc' not found"; exit 1; }
+BC=$(command -v bc) || { >&2 echo "bcx: ✗ 'bc' not found"; exit 18; }  # ERR_NODEP
 declare -r BC
 
-# Setup error file with mktemp
-errfile=$(mktemp -t bcx-error.XXXXXX) || { >&2 echo 'bcx: ✗ Cannot create temp file'; exit 1; }
-declare -r errfile
-
-# Setup exit trap
+# Install trap BEFORE creating any cleanup-tracked resource (prevents leak
+# when a signal lands between mktemp and the trap install).
 trap 'cleanup $?' SIGINT SIGTERM EXIT
+
+# Setup error file with mktemp
+errfile=$(mktemp -t bcx-error.XXXXXX) || { >&2 echo 'bcx: ✗ Cannot create temp file'; exit 5; }  # ERR_IO
+declare -r errfile
 
 # Terminal detection
 declare -i is_terminal
@@ -154,10 +167,10 @@ if (($#)); then
     expression=${expression//x/*} # convert x to * if is_terminal
     >&2 echo "> $expression"
   }
-  evaluate_expression "$expression" || err=1
+  evaluate_expression "$expression" || err=$?
 else
   # No expression provided - show help in non-terminal mode
-  ((is_terminal)) || { >&2 show_help; exit 1; }
+  ((is_terminal)) || { >&2 show_help; exit 2; }  # ERR_USAGE
 fi
 
 # Interactive REPL if terminal
@@ -165,7 +178,7 @@ if ((is_terminal)); then
   setup_history
   (($#==0)) || history -s "$expression"  # Add initial expression to history if provided
   interactive_loop
-  set +o history  # Disable history to prevent script commands from being saved
+  set +o history  # defensive: cleanup() already wrote $HISTFILE on EXIT
 fi
 
 exit "$err"

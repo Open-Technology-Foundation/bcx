@@ -32,36 +32,56 @@ echo "alias ?='bcx'" >> ~/.bashrc
 ## Usage
 
 ```
-bcx [-h|--help] [-V|--version] [expression]
+bcx [-h|--help] [-V|--version] [expression...]
 ```
 
-**Single-expression evaluation:**
+Multiple args are joined and stripped of spaces before evaluation, so
+`bcx 23 x 42`, `bcx 23x42`, and `bcx "23 * 42"` are equivalent in terminal mode.
+
+### Mode behaviour
+
+| Stdout    | Args | Behaviour                                              |
+|-----------|------|--------------------------------------------------------|
+| Terminal  | yes  | Echo `> expr` to stderr, evaluate, **enter REPL**      |
+| Terminal  | no   | Enter REPL immediately                                 |
+| Pipe/file | yes  | Evaluate once, print result, exit (`22` on bc error)   |
+| Pipe/file | no   | Print help to stderr, exit `2`                         |
+
+The `x → *` substitution applies only in terminal mode at the command line —
+not inside the REPL, where `*` is required.
+
+**Terminal — REPL after one-shot eval:**
 ```bash
-bcx "3.14 * 2"              # 6.28
-bcx "sqrt(144)"             # 12
-bcx 42x72/3.14              # x converts to * (command-line only, not in REPL)
+$ bcx "3.14 * 2"
+> 3.14*2
+6.28
+> sqrt(144)
+12
+>                             # empty line or Ctrl-D exits
 ```
 
-**Interactive REPL:**
+**Terminal — interactive REPL only:**
 ```bash
 $ bcx
 > 2 + 2
 4
 > sqrt(16)
 4.00000000000000000000
->                             # empty line or Ctrl-D exits
+>
+```
+
+**Pipe / capture (one-shot, no REPL):**
+```bash
+result=$(bcx "42 * 72 / 3.14")
+echo "Result: $result"
+
+bcx "sqrt(144)" | tee result.txt
 ```
 
 **As command alias:**
 ```bash
-? 23x42                     # Quick calculation
-? "scale=4; 22/7"           # Pi approximation
-```
-
-**In scripts (non-terminal mode):**
-```bash
-result=$(bcx "42 * 72 / 3.14")
-echo "Result: $result"
+? 23x42                     # quick calculation (terminal: x → *)
+? "scale=4; 22/7"           # pi approximation
 ```
 
 ### REPL Controls
@@ -75,16 +95,27 @@ echo "Result: $result"
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Normal exit |
-| 1 | Invalid expression (single-expression mode) |
-| 130 | Interrupted with Ctrl-C |
+Canonical [BCS exit codes](https://github.com/Open-Technology-Foundation/bash-coding-standard) are used.
+
+| Code | Symbol       | Meaning                                                          |
+|------|--------------|------------------------------------------------------------------|
+| 0    | SUCCESS      | Normal exit (REPL via Ctrl-D / empty line, or successful eval)   |
+| 2    | ERR_USAGE    | No args supplied to a pipe (help printed to stderr)              |
+| 5    | ERR_IO       | Could not create temporary error-capture file                    |
+| 18   | ERR_NODEP    | `bc` binary not found on PATH                                    |
+| 22   | ERR_INVAL    | bc emitted a parse / runtime diagnostic in one-shot mode         |
+| 130  | (signal)     | REPL interrupted with Ctrl-C                                     |
+
+REPL evaluation errors are reported but do **not** affect the exit code —
+exit status reflects how the session ended, not what happened during it.
 
 ## Requirements
 
-- Bash 4.4+ (`inherit_errexit`, `${var@Q}`)
-- `bc` command-line calculator
+- Bash 4.4+ — uses `shopt -s inherit_errexit` and `${var@Q}` quoting
+- `bc` calculator (invoked with `--mathlib` for sqrt/sin/cos/etc.)
+- POSIX `mktemp` (for the per-run error-capture file)
+
+History is persisted to `~/.bcx_history` (`HISTSIZE=1000`).
 
 ## BCS Compliance
 
