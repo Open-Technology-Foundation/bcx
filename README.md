@@ -25,6 +25,10 @@ sudo chmod +x /usr/local/bin/bcx
 # Optional: Install bash completion
 sudo cp .bash_completion /etc/bash_completion.d/bcx
 
+# Optional: Install manpage
+sudo cp bcx.1 /usr/local/share/man/man1/
+sudo mandb -q
+
 # Optional: Create alias for quick access
 echo "alias ?='bcx'" >> ~/.bashrc
 ```

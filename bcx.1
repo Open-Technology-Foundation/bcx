@@ -1,0 +1,195 @@
+'\" t
+.\" Manpage for bcx - terminal calculator for floating-point expressions.
+.TH BCX 1 "2026-05-08" "bcx 1.0.0" "User Commands"
+.SH NAME
+bcx \- terminal calculator for floating-point expressions with interactive REPL
+.SH SYNOPSIS
+.B bcx
+.RB [ \-h | \-\-help ]
+.RB [ \-V | \-\-version ]
+.RB [ \-\- ]
+.RI [ expression ...]
+.SH DESCRIPTION
+.B bcx
+is a Bash wrapper around
+.BR bc (1)
+that fixes its poor terminal UX by providing readline command history,
+clean Ctrl-C handling, an interactive REPL, and a quoteless-friendly
+command-line syntax.
+.PP
+All non-option arguments are joined into a single expression and every
+space character is stripped, so
+.RI ` "bcx 23 x 42" ',
+.RI ` "bcx 23x42" ',
+and
+.RI ` "bcx \(dq23 * 42\(dq" '
+are equivalent in terminal mode.
+.PP
+In terminal mode, the literal letter
+.B x
+in command-line arguments is substituted for
+.BR * ,
+allowing expressions with multiplication to be entered without shell
+quoting. The substitution does
+.B not
+apply inside the REPL, nor under command substitution
+.RB ` $(...) '
+or any pipe \(em those run in pipe mode, where
+.B *
+must be used directly (and shell-quoted to escape glob expansion).
+.PP
+Internally, bcx invokes
+.B bc \-\-mathlib
+so the math library functions
+.RB ( s ", " c ", " a ", " l ", " e ", " sqrt )
+are available, and the default scale is 20 fractional digits.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Print the help text and exit 0. The synopsis line reflects the actual
+invocation name, so the help adapts when bcx is run via a symlink or
+shell alias.
+.TP
+.BR \-V ", " \-\-version
+Print
+.RI ` "<name> <version>" '
+and exit 0.
+.TP
+.B \-\-
+End-of-options marker. Required before expressions that begin with
+.B \-
+(e.g.,
+.RI ` "bcx \-\- \-3+5" ')
+so a leading minus is not mistaken for an unknown option.
+.SH MODES
+.TS
+tab(|);
+l l l.
+I/O|Args|Behaviour
+_
+Terminal|yes|Echo \fB> expr\fR to stderr, evaluate, then enter REPL
+Terminal|no|Enter REPL immediately
+Pipe/file|yes|Evaluate once, print result, exit (22 on bc error)
+Pipe/file|no|Print help to stderr, exit 2
+.TE
+.PP
+.B Terminal
+mode is detected when
+.B both
+stdout and stderr are connected to a TTY
+.RB ( "[[ \-t 1 && \-t 2 ]]" ).
+If either is redirected, bcx runs in pipe mode.
+.SH REPL CONTROLS
+.TP
+.B Ctrl-D
+or empty line \(em exit (code 0).
+.TP
+.B Ctrl-C
+\(em exit (code 130).
+.TP
+.B Up / Down arrows
+\(em history navigation.
+.TP
+.B Ctrl-R
+\(em reverse history search.
+.PP
+REPL evaluation errors are reported but do
+.B not
+affect the exit code \(em the exit status reflects
+.I how
+the session ended, not what happened during it.
+.SH EXAMPLES
+Quoteless terminal-mode usage (args joined, x \(-> *):
+.PP
+.nf
+.RS
+bcx 23x42                       # 966
+bcx 1024 x 1024 x 1024          # 1073741824
+bcx 22/7                        # 3.14285714285714285714
+bcx 1.05^10                     # 1.62889462677744140625
+bcx 100x1.05^10                 # 162.88946267774414062500
+.RE
+.fi
+.PP
+Quote when the expression contains parentheses, semicolons, or literal
+whitespace inside a string:
+.PP
+.nf
+.RS
+bcx "sqrt(2)"                   # 1.41421356237309504880
+bcx "scale=4; 22/7"             # 3.1428
+bcx "a(1)*4"                    # \(*p via 4\(mu atan(1)
+.RE
+.fi
+.PP
+Capture output. Note: command substitution is pipe mode, so x \(-> *
+is skipped \(em use literal
+.B *
+and quote it:
+.PP
+.nf
+.RS
+result=$(bcx "42*69*72/3.14")
+.RE
+.fi
+.PP
+Setup as a shell alias for quick access (bcx adapts its help/synopsis
+to the invocation name):
+.PP
+.nf
+.RS
+alias ?='/usr/local/bin/bcx'
+
+? 23x42                         # quick calculation
+? "scale=4; 22/7"               # pi approximation
+.RE
+.fi
+.SH ENVIRONMENT
+.TP
+.B HOME
+Used to locate the persistent history file at
+.IR $HOME/.bcx_history .
+.SH FILES
+.TP
+.I ~/.bcx_history
+Persistent REPL command history (HISTSIZE=1000, HISTFILESIZE=2000).
+Written on exit when bcx is run in terminal mode.
+.SH EXIT STATUS
+.TP
+.B 0
+Normal exit (REPL terminated via Ctrl-D / empty line, or one-shot
+evaluation succeeded).
+.TP
+.B 2
+ERR_USAGE \(em no expression supplied to a non-terminal invocation
+(help printed to stderr).
+.TP
+.B 5
+ERR_IO \(em could not create the temporary error-capture file.
+.TP
+.B 18
+ERR_NODEP \(em the
+.B bc
+binary was not found on
+.BR PATH .
+.TP
+.B 22
+ERR_INVAL \(em invalid CLI option, or
+.B bc
+emitted a parse / runtime diagnostic in one-shot mode.
+.TP
+.B 130
+REPL interrupted with Ctrl-C.
+.SH SEE ALSO
+.BR bc (1),
+.BR readline (3)
+.SH AUTHOR
+Gary Dean \(em
+.UR https://garydean.id
+.UE
+.PP
+Source:
+.UR https://github.com/Open-Technology-Foundation/bcx
+.UE
+.SH LICENSE
+GNU General Public License v3.0 or later.
