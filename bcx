@@ -1,8 +1,15 @@
 #!/bin/bash
+# cleanup(), interactive_sigint_handler(), and the trap-only
+# fns are invoked via trap argument strings, which shellcheck
+# cannot resolve statically — silence its dead-code warnings.
 #shellcheck disable=SC2317,SC2329
 # bcx - terminal calculator for floating point expressions
 set -euo pipefail
 shopt -s inherit_errexit
+
+# Lock PATH so external tools (mktemp, rm, cat) resolve to known
+# coreutils locations regardless of caller environment (BCS1002).
+declare -rx PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 # Initialization
 
@@ -33,8 +40,12 @@ error() { _msg "✗ $*"; }
 die()   { error "${@:2}"; exit "$1"; }
 
 show_help() {
+  # Unquoted heredoc emits the dynamic header with $SCRIPT_NAME / $VERSION;
+  # quoted heredoc holds the static body verbatim (literal `$` and backticks).
+  cat <<HELP
+$SCRIPT_NAME $VERSION - terminal calculator for floating point expressions
+HELP
   cat <<'HELP'
-bcx - terminal calculator for floating point expressions
 
 This is a wrapper script for bc (see: man bc).
 
@@ -161,7 +172,7 @@ while (($#)); do case $1 in
   --)           shift; break ;;
   -*)           die 22 "Invalid option ${1@Q}" ;;  # ERR_INVAL
   *)            break ;;
-esac; done
+esac; shift; done
 
 # Locate bc command
 BC=$(command -v bc) || die 18 "'bc' not found"  # ERR_NODEP
@@ -177,7 +188,7 @@ declare -r ERRFILE
 
 # Terminal detection (BCS0105: both stdout AND stderr must be a TTY)
 [[ -t 1 && -t 2 ]] && IS_TERMINAL=1 || IS_TERMINAL=0
-readonly -- IS_TERMINAL
+readonly IS_TERMINAL
 
 # Check if we have an expression
 if (($#)); then
