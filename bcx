@@ -40,8 +40,8 @@ error() { _msg "✗ $*"; }
 die()   { error "${@:2}"; exit "$1"; }
 
 show_help() {
-  # Unquoted heredoc emits the dynamic header with $SCRIPT_NAME / $VERSION;
-  # quoted heredoc holds the static body verbatim (literal `$` and backticks).
+  # Heredocs: unquoted sections expand $SCRIPT_NAME / $VERSION (synopsis);
+  # quoted sections preserve literal `$`, `$(…)`, and backticks (examples).
   cat <<HELP
 $SCRIPT_NAME $VERSION - terminal calculator for floating point expressions
 HELP
@@ -51,23 +51,25 @@ This is a wrapper script for bc (see: man bc).
 
 Because bc at the terminal sucks.
 
-```shell
-0:~/bcx:biksu@okusi$ bc --mathlib <<<"42*72/3.14%0.137"
-.00000000000000000000043
-0:~/bcx:biksu@okusi$ bcx 42x72 /3.14% 0.137
-> 42*72/3.14%0.137
-.00000000000000000000043
->
-```
+    0:~/bcx:biksu@okusi$ bc --mathlib <<<"42*72/3.14%0.137"
+    .00000000000000000000043
+    0:~/bcx:biksu@okusi$ bcx 42x72 /3.14% 0.137
+    > 42*72/3.14%0.137
+    .00000000000000000000043
+    >
 
-Usage: bcx [-h|--help] [-V|--version] [--] [expression...]
+HELP
+  cat <<HELP
+Usage: $SCRIPT_NAME [-h|--help] [-V|--version] [--] [expression...]
 
   With expression:  evaluate and enter REPL (terminal) or print result (pipe)
   Without args:     enter interactive REPL (terminal) or show help + exit 2 (pipe)
 
 Multiple args are joined and stripped of spaces before evaluation.
-Use `--` before expressions that begin with `-` (e.g., `bcx -- -3+5`).
+Use \`--\` before expressions that begin with \`-\` (e.g., \`$SCRIPT_NAME -- -3+5\`).
 
+HELP
+  cat <<'HELP'
 REPL controls:
   Ctrl-D or empty line  exit (code 0)
   Ctrl-C                exit (code 130)
