@@ -1,30 +1,24 @@
 #!/usr/bin/bash
+# Bash completion for bcx and the `?` alias.
+#
+# Completes the documented short/long options and the `--` end-of-options
+# marker when the current word starts with `-`; for any other prefix we
+# yield no suggestions, since mathematical expressions are user-defined.
 
 _bcx_completion() {
-    local cur prev opts
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
+  local -- cur opts
+  COMPREPLY=()
+  cur=${COMP_WORDS[COMP_CWORD]}
+  opts='-h --help -V --version --'
 
-    # Options for bcx
-    opts="-h --help"
-
-    case "${prev}" in
-        bcx)
-            # Complete with help options or allow any mathematical expression
-            COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-            return 0
-            ;;
-        *)
-            # For mathematical expressions, don't provide completions
-            # as they are user-defined calculations
-            return 0
-            ;;
-    esac
+  if [[ $cur == -* ]]; then
+    mapfile -t COMPREPLY < <(compgen -W "$opts" -- "$cur")
+  fi
+  return 0
 }
 
-# Register completion for bcx command
 complete -F _bcx_completion bcx
-
-# Also register completion for common alias '?'
-complete -F _bcx_completion ?
+# `?` is the documented alias (see show_help in bcx); register the same fn.
+# Quote the literal '?' so shells with a single-char file in CWD do not
+# glob-expand it before `complete` sees it.
+complete -F _bcx_completion '?'
