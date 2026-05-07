@@ -13,7 +13,7 @@ A Bash wrapper around `bc` that fixes its poor terminal UX by providing readline
 - **Persistent command history** (`~/.bcx_history`)
 - **x → * conversion** in terminal mode (e.g., `3x4` becomes `3*4`)
 - **Clean error handling** with clear feedback
-- **Math library** support (sqrt, sin, cos, etc.)
+- **Math library** support (sqrt, sin, cos, etc.) with 20-digit default scale
 
 ## Installation
 
@@ -65,19 +65,24 @@ Usage: ? [-h|--help] [-V|--version] [--] [expression...]
 
 ### Mode behaviour
 
-| Stdout    | Args | Behaviour                                              |
+| I/O       | Args | Behaviour                                              |
 |-----------|------|--------------------------------------------------------|
 | Terminal  | yes  | Echo `> expr` to stderr, evaluate, **enter REPL**      |
 | Terminal  | no   | Enter REPL immediately                                 |
 | Pipe/file | yes  | Evaluate once, print result, exit (`22` on bc error)   |
 | Pipe/file | no   | Print help to stderr, exit `2`                         |
 
-The `x → *` substitution applies only in terminal mode at the command line —
-not inside the REPL, where `*` is required.
+"Terminal" means **both** stdout and stderr are connected to a TTY
+(`[[ -t 1 && -t 2 ]]`). If either is redirected, bcx runs in pipe mode.
+
+The `x → *` substitution applies only to command-line args in terminal
+mode. It does **not** apply inside the REPL (use `*` directly), nor under
+command substitution `$(bcx …)` or any pipe — those are pipe mode, where
+the expression must already use `*`.
 
 **Terminal — REPL after one-shot eval:**
 ```bash
-$ bcx "3.14 * 2"
+$ bcx 3.14x2
 > 3.14*2
 6.28
 > sqrt(144)

@@ -87,8 +87,8 @@ literal whitespace inside a string:
   bcx "scale=4; 22/7"             # 3.1428
   bcx "a(1)*4"                    # π via 4·atan(1)
 
-Capture output:
-  result=\$(bcx 42x69x72/3.14)
+Capture output (\$(...) is pipe mode — no x→*, quote the '*'):
+  result=\$(bcx "42*69*72/3.14")
 
 Setup alias in ~/.bashrc:
   alias ?='/usr/local/bin/bcx'
