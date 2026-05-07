@@ -17,20 +17,48 @@ A Bash wrapper around `bc` that fixes its poor terminal UX by providing readline
 
 ## Installation
 
+The recommended path is the BCS1212-compliant Makefile, which installs
+the binary, manpage, and bash completion in one step using `install(1)`:
+
 ```bash
-# Copy to system path
-sudo cp bcx /usr/local/bin/
-sudo chmod +x /usr/local/bin/bcx
+sudo make install        # → /usr/local/bin, /usr/local/share/man/man1, /etc/bash_completion.d
+sudo mandb -q            # refresh manpage index (so `man bcx` works)
 
-# Optional: Install bash completion
-sudo cp .bash_completion /etc/bash_completion.d/bcx
+# Optional: alias for quick access
+echo "alias ?='/usr/local/bin/bcx'" >> ~/.bashrc
+```
 
-# Optional: Install manpage
-sudo cp bcx.1 /usr/local/share/man/man1/
+Override paths via standard variables:
+
+```bash
+sudo make install PREFIX=/opt/bcx                 # → /opt/bcx/bin, /opt/bcx/share/man/man1
+make install DESTDIR=/tmp/stage                   # stage for packagers (no sudo)
+```
+
+| Variable  | Default                  | Purpose                          |
+|-----------|--------------------------|----------------------------------|
+| `PREFIX`  | `/usr/local`             | Install root                     |
+| `BINDIR`  | `$(PREFIX)/bin`          | Binary location                  |
+| `MANDIR`  | `$(PREFIX)/share/man`    | Manpage tree (`man1/` appended)  |
+| `COMPDIR` | `/etc/bash_completion.d` | Bash completion                  |
+| `DESTDIR` | *(empty)*                | Staging prefix for packaging     |
+
+Other targets:
+
+```bash
+make help                # list targets and current variable values
+make test                # shellcheck + pipe-mode smoke tests + groff manpage lint
+make check               # verify the installed binary runs (skipped if DESTDIR set)
+sudo make uninstall      # remove everything install placed
+```
+
+### Manual install (no make)
+
+```bash
+sudo install -m 0755 bcx /usr/local/bin/
+sudo install -m 0644 bcx.1 /usr/local/share/man/man1/
+sudo install -m 0644 .bash_completion /etc/bash_completion.d/bcx
 sudo mandb -q
-
-# Optional: Create alias for quick access
-echo "alias ?='bcx'" >> ~/.bashrc
 ```
 
 ## Usage
