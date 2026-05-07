@@ -32,11 +32,19 @@ echo "alias ?='bcx'" >> ~/.bashrc
 ## Usage
 
 ```
-bcx [-h|--help] [-V|--version] [expression...]
+bcx [-h|--help] [-V|--version] [--] [expression...]
 ```
 
 Multiple args are joined and stripped of spaces before evaluation, so
 `bcx 23 x 42`, `bcx 23x42`, and `bcx "23 * 42"` are equivalent in terminal mode.
+
+Expressions that start with `-` (negative numbers, etc.) must be preceded
+by `--` to disambiguate from options:
+
+```bash
+bcx -- -3+5      # → 2
+bcx -3+5         # ✗ Invalid option '-3+5' (exit 22)
+```
 
 ### Mode behaviour
 
