@@ -35,15 +35,32 @@ echo "alias ?='bcx'" >> ~/.bashrc
 bcx [-h|--help] [-V|--version] [--] [expression...]
 ```
 
-Multiple args are joined and stripped of spaces before evaluation, so
-`bcx 23 x 42`, `bcx 23x42`, and `bcx "23 * 42"` are equivalent in terminal mode.
+| Flag | Action |
+|------|--------|
+| `-h`, `--help` | Print help (adapts to invocation name) and exit `0` |
+| `-V`, `--version` | Print `<name> <version>` and exit `0` |
+| `--` | End-of-options marker; everything after is expression |
 
-Expressions that start with `-` (negative numbers, etc.) must be preceded
-by `--` to disambiguate from options:
+Multiple args are joined and spaces stripped before evaluation, so
+`bcx 23 x 42`, `bcx 23x42`, and `bcx "23 * 42"` are equivalent in
+terminal mode.
+
+Expressions starting with `-` (negative numbers, etc.) must be preceded
+by `--` so the parser does not mistake them for unknown options:
 
 ```bash
 bcx -- -3+5      # → 2
 bcx -3+5         # ✗ Invalid option '-3+5' (exit 22)
+```
+
+Help and version output reflect the actual invocation name. Run via the
+`?` alias (or any symlink) and the synopsis updates accordingly:
+
+```text
+$ ? -h
+? 1.0.0 - terminal calculator for floating point expressions
+...
+Usage: ? [-h|--help] [-V|--version] [--] [expression...]
 ```
 
 ### Mode behaviour
