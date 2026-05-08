@@ -9,7 +9,7 @@ _bcx_completion() {
   local -- cur opts
   COMPREPLY=()
   cur=${COMP_WORDS[COMP_CWORD]}
-  opts='-h --help -V --version --'
+  opts='-h --help -V --version -s --scale --'
 
   if [[ $cur == -* ]]; then
     mapfile -t COMPREPLY < <(compgen -W "$opts" -- "$cur")

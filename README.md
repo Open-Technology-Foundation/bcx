@@ -64,13 +64,14 @@ sudo mandb -q
 ## Usage
 
 ```
-bcx [-h|--help] [-V|--version] [--] [expression...]
+bcx [-h|--help] [-V|--version] [-s|--scale N] [--] [expression...]
 ```
 
 | Flag | Action |
 |------|--------|
 | `-h`, `--help` | Print help (adapts to invocation name) and exit `0` |
 | `-V`, `--version` | Print `<name> <version>` and exit `0` |
+| `-s`, `--scale N` | Set bc `scale` to `N` (non-negative integer) for this run, REPL included. Explicit `scale=M;` in the expression still wins. |
 | `--` | End-of-options marker; everything after is expression |
 
 Multiple args are joined and spaces stripped before evaluation, so
@@ -144,6 +145,22 @@ bcx "sqrt(144)" | tee result.txt
 ```bash
 ? 23x42                     # quick calculation (terminal: x → *)
 ? "scale=4; 22/7"           # pi approximation
+```
+
+**Custom scale (`-s` / `--scale`):**
+```bash
+bcx -s 4 22/7               # 3.1428
+bcx --scale 0 7/2           # 3              (integer truncation)
+bcx -s 4 "scale=10; 22/7"   # 3.1428571428   (in-expr scale wins)
+bcx -s 8                    # enter REPL with scale=8 for the session
+```
+
+A per-shell default can be set via the `BCX_SCALE` environment variable; the
+command-line flag overrides:
+```bash
+export BCX_SCALE=4
+bcx 22/7                    # 3.1428         (env-default applied)
+bcx -s 10 22/7              # 3.1428571428   (-s overrides env)
 ```
 
 ### REPL Controls

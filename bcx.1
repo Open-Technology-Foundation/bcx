@@ -1,12 +1,13 @@
 '\" t
 .\" Manpage for bcx - terminal calculator for floating-point expressions.
-.TH BCX 1 "2026-05-08" "bcx 1.0.0" "User Commands"
+.TH BCX 1 "2026-05-08" "bcx 1.1.0" "User Commands"
 .SH NAME
 bcx \- terminal calculator for floating-point expressions with interactive REPL
 .SH SYNOPSIS
 .B bcx
 .RB [ \-h | \-\-help ]
 .RB [ \-V | \-\-version ]
+.RB [ \-s | \-\-scale " " N ]
 .RB [ \-\- ]
 .RI [ expression ...]
 .SH DESCRIPTION
@@ -54,6 +55,21 @@ shell alias.
 Print
 .RI ` "<name> <version>" '
 and exit 0.
+.TP
+.BR \-s ", " \-\-scale " " \fIN\fR
+Set bc's
+.B scale
+variable (fractional-digit precision) to
+.IR N ,
+a non-negative integer, for the duration of this invocation \(em both the
+one-shot evaluation and any subsequent REPL session. Without this flag, bc's
+mathlib default of 20 applies. An explicit
+.RB ` "scale=M;" '
+inside the expression still wins because it executes after the prepended
+directive. Invalid or missing
+.I N
+exits with status 22
+.RB ( ERR_INVAL ).
 .TP
 .B \-\-
 End-of-options marker. Required before expressions that begin with
@@ -122,6 +138,17 @@ bcx "a(1)*4"                    # \(*p via 4\(mu atan(1)
 .RE
 .fi
 .PP
+Override the default 20-digit scale with
+.BR \-s / \-\-scale :
+.PP
+.nf
+.RS
+bcx \-s 4 22/7                    # 3.1428
+bcx \-\-scale 0 7/2                # 3            (integer truncation)
+bcx \-s 4 "scale=10; 22/7"        # 3.1428571428 (in-expr scale wins)
+.RE
+.fi
+.PP
 Capture output. Note: command substitution is pipe mode, so x \(-> *
 is skipped \(em use literal
 .B *
@@ -149,6 +176,16 @@ alias ?='/usr/local/bin/bcx'
 .B HOME
 Used to locate the persistent history file at
 .IR $HOME/.bcx_history .
+.TP
+.B BCX_SCALE
+Default value for
+.BR \-\-scale .
+Must be a non-negative integer. The command-line flag overrides; an unset or
+negative value leaves bc's mathlib default of 20 in place. Useful for setting
+a per-shell default, e.g.
+.RB ` "export BCX_SCALE=4" '
+in
+.IR ~/.bashrc .
 .SH FILES
 .TP
 .I ~/.bcx_history

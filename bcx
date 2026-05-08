@@ -14,7 +14,7 @@ declare -rx PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Initialization
 
 # Script metadata
-declare -r VERSION='1.0.0' # 2025-10-20
+declare -r VERSION='1.1.0' # 2026-05-08
 # SCRIPT_NAME deliberately uses ${0##*/} (no realpath) so messages reflect
 # the invocation name when the script is run via the `?` alias / a symlink.
 declare -r SCRIPT_NAME=${0##*/}
@@ -22,6 +22,20 @@ declare -r SCRIPT_NAME=${0##*/}
 # Global variables
 declare -- BC ERRFILE EXPRESSION
 declare -i ERR=0 IS_TERMINAL=0
+# BCX_SCALE sentinel: -1 means "unset" — leave bc's mathlib default of 20 alone.
+# Any non-negative integer is prepended to each expression as `scale=N; …`.
+# Seeded from the environment so a default precision can be set per-shell;
+# `-s/--scale N` on the command line still overrides. Validated as a string
+# first because `declare -i FOO=$bar` evaluates $bar in arithmetic context,
+# which under `set -u` turns garbage like 'abc' into a confusing
+# 'unbound variable' abort — better to emit a clear diagnostic.
+declare -- _bcx_scale_seed=${BCX_SCALE:--1}
+if ! [[ $_bcx_scale_seed =~ ^-?[0-9]+$ ]]; then
+  >&2 printf 'bcx: ✗ Invalid BCX_SCALE %q (integer required)\n' "$_bcx_scale_seed"
+  exit 22
+fi
+declare -i BCX_SCALE=$_bcx_scale_seed
+unset _bcx_scale_seed
 
 # History configuration
 # These three names shadow bash's built-in interactive-shell history
@@ -60,10 +74,20 @@ bcx joins all command-line args, strips spaces, and (in terminal
 mode) substitutes 'x' for '*' so the expression needs no quoting
 or escaping.
 
-Usage: $SCRIPT_NAME [-h|--help] [-V|--version] [--] [expression...]
+Usage: $SCRIPT_NAME [-h|--help] [-V|--version] [-s|--scale N] [--] [expression...]
 
   With expression:  evaluate and enter REPL (terminal) or print result (pipe)
   Without args:     enter interactive REPL (terminal) or show help + exit 2 (pipe)
+
+Options:
+  -s, --scale N     set bc 'scale' (fractional digits) for this run, including
+                    REPL. N must be a non-negative integer. An explicit
+                    'scale=M;' inside the expression still wins.
+
+Environment:
+  BCX_SCALE         default value for --scale (non-negative integer). The
+                    command-line flag overrides. Unset / negative means
+                    'use bc's mathlib default of 20'.
 
 Multiple args are joined and stripped of spaces before evaluation.
 Use '--' before expressions that begin with '-' (e.g., '$SCRIPT_NAME -- -3+5').
@@ -80,6 +104,7 @@ Examples (no quotes needed):
   bcx 22/7                        # 3.14285714...   (mathlib auto-scale)
   bcx 1.05^10                     # 1.62889...      (10-year growth)
   bcx 100x1.05^10                 # 162.889...      (compound interest)
+  bcx -s 4 22/7                   # 3.1428          (custom scale)
 
 Quote when the expression contains parentheses, semicolons, or
 literal whitespace inside a string:
@@ -137,6 +162,10 @@ evaluate_expression() {
   local -- expr=$1
   local -i exit_code=0
 
+  # Prepend scale directive when --scale was given; explicit `scale=` inside
+  # the expression executes after this and therefore wins.
+  ((BCX_SCALE >= 0)) && expr="scale=$BCX_SCALE; $expr"
+
   "$BC" --mathlib <<<"$expr" 2>"$ERRFILE"
 
   if [[ -s $ERRFILE ]]; then
@@ -179,6 +208,11 @@ interactive_loop() {
 while (($#)); do case $1 in
   -h|--help)    show_help; exit 0 ;;
   -V|--version) printf '%s %s\n' "$SCRIPT_NAME" "$VERSION"; exit 0 ;;
+  -s|--scale)   shift
+                [[ $# -gt 0 ]] || die 22 "Option ${1:---scale} requires argument"
+                [[ $1 =~ ^[0-9]+$ ]] || die 22 "Invalid scale ${1@Q} (non-negative integer required)"
+                BCX_SCALE=$1
+                ;;
   --)           shift; break ;;
   -*)           die 22 "Invalid option ${1@Q}" ;;  # ERR_INVAL
   *)            break ;;
