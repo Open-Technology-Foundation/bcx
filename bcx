@@ -51,7 +51,7 @@ declare -ri HISTSIZE=1000 HISTFILESIZE=2000
 # Messaging primitives (BCS0703)
 _msg()  { >&2 printf "$SCRIPT_NAME: %s\n" "$@"; }
 error() { _msg "✗ $*"; }
-die()   { error "${@:2}"; exit "$1"; }
+die()   { (($# < 2)) || error "${@:2}"; exit "${1:-0}"; }
 
 show_help() {
   # Unquoted heredoc expands $SCRIPT_NAME / $VERSION; literal `$` in shell
@@ -164,7 +164,7 @@ evaluate_expression() {
 
   # Prepend scale directive when --scale was given; explicit `scale=` inside
   # the expression executes after this and therefore wins.
-  ((BCX_SCALE >= 0)) && expr="scale=$BCX_SCALE; $expr"
+  ((BCX_SCALE >= 0)) && expr="scale=$BCX_SCALE; $expr" ||:
 
   "$BC" --mathlib <<<"$expr" 2>"$ERRFILE"
 
@@ -208,8 +208,8 @@ interactive_loop() {
 while (($#)); do case $1 in
   -h|--help)    show_help; exit 0 ;;
   -V|--version) printf '%s %s\n' "$SCRIPT_NAME" "$VERSION"; exit 0 ;;
-  -s|--scale)   shift
-                [[ $# -gt 0 ]] || die 22 "Option ${1:---scale} requires argument"
+  -s|--scale)   (($# > 1)) || die 22 "Option ${1@Q} requires an argument"
+                shift
                 [[ $1 =~ ^[0-9]+$ ]] || die 22 "Invalid scale ${1@Q} (non-negative integer required)"
                 BCX_SCALE=$1
                 ;;
